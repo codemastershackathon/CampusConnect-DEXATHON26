@@ -1,0 +1,145 @@
+rules_version = '2';
+// CampusConnect security rules. Check #3 of 3 (client guard → Netlify functions → these rules).
+// Anything that moves karma, badges, roles, requests, connections, chats, reports or notifications is
+// written ONLY by the Admin SDK in Netlify functions; the client can never write those fields.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- helpers ----------
+    // CHANGE THE DOMAIN HERE to match ALLOWED_EMAIL_DOMAINS (for several: 'a\\.edu|b\\.edu').
+    function collegeEmail() { return request.auth.token.email.matches('.*@(sathyabama\\.ac\\.in)'); }
+    function signedIn()     { return request.auth != null; }
+    function verified()     { return signedIn() && request.auth.token.email_verified == true && collegeEmail(); }
+    function role()         { return request.auth.token.get('role', 'student'); }
+    function isAdmin()      { return verified() && role() == 'admin'; }
+    function isStaff()      { return verified() && (role() == 'admin' || role() == 'faculty'); }
+    function userDoc(uid)   { return get(/databases/$(database)/documents/users/$(uid)).data; }
+    function isActive()     { return verified() && userDoc(request.auth.uid).status == 'active'; }
+    function pairId(a, b)   { return a < b ? a + '_' + b : b + '_' + a; }
+    function connected(a, b){ return exists(/databases/$(database)/documents/connections/$(pairId(a, b))); }
+    function onlyChanges(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+    function validTags(t)   { return t is list && t.size() >= 1 && t.size() <= 8; }
+
+    // ---------- users ----------
+    match /users/{uid} {
+      allow read: if verified();
+      allow create: if verified() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['displayName','photoURL','year','department','skills','lendItems','onboarded','karma','badge','helpedCount','role','status','createdAt','lastActiveAt'])
+        && request.resource.data.displayName is string && request.resource.data.displayName.size() >= 1 && request.resource.data.displayName.size() <= 60
+        && request.resource.data.year is int && request.resource.data.year >= 1 && request.resource.data.year <= 4
+        && request.resource.data.department is string && request.resource.data.department.size() <= 80
+        && request.resource.data.skills is list && request.resource.data.skills.size() <= 8
+        && request.resource.data.lendItems is list && request.resource.data.lendItems.size() <= 10
+        && request.resource.data.onboarded == false
+        && request.resource.data.karma == 0
+        && request.resource.data.badge == 'Newcomer'
+        && request.resource.data.helpedCount == 0
+        && request.resource.data.role == 'student'
+        && request.resource.data.status == 'active'
+        && request.resource.data.createdAt == request.time;
+      allow update: if verified() && request.auth.uid == uid
+        && onlyChanges(['displayName','photoURL','year','department','skills','lendItems','onboarded','lastActiveAt'])
+        && request.resource.data.displayName is string && request.resource.data.displayName.size() >= 1 && request.resource.data.displayName.size() <= 60
+        && request.resource.data.year is int && request.resource.data.year >= 1 && request.resource.data.year <= 4
+        && request.resource.data.skills is list && request.resource.data.skills.size() <= 8
+        && request.resource.data.lendItems is list && request.resource.data.lendItems.size() <= 10;
+      allow delete: if false;
+
+      // Private contact details: the owner, or someone with an accepted connection to the owner.
+      match /private/contact {
+        allow read: if verified() && (request.auth.uid == uid || connected(request.auth.uid, uid));
+        allow create, update: if verified() && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['email','phone','shareEmail','sharePhone','updatedAt'])
+          && request.resource.data.email == request.auth.token.email
+          && (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() <= 20))
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if false;
+      }
+    }
+
+    // ---------- posts ----------
+    match /posts/{postId} {
+      allow read: if verified() && (resource.data.status == 'open' || resource.data.authorId == request.auth.uid || isAdmin());
+      allow create: if isActive()
+        && request.resource.data.keys().hasOnly(['authorId','type','category','title','description','tags','status','reportCount','createdAt','updatedAt'])
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.type in ['need','offer']
+        && request.resource.data.category in ['academic','lend','teammates','events']
+        && request.resource.data.title is string && request.resource.data.title.size() >= 5 && request.resource.data.title.size() <= 120
+        && request.resource.data.description is string && request.resource.data.description.size() >= 1 && request.resource.data.description.size() <= 500
+        && validTags(request.resource.data.tags)
+        && request.resource.data.status == 'open'
+        && request.resource.data.reportCount == 0
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      // Authors may edit title, description, tags, and close their own post. Never authorId/reportCount/hidden.
+      allow update: if isActive() && resource.data.authorId == request.auth.uid
+        && onlyChanges(['title','description','tags','status','updatedAt'])
+        && resource.data.status != 'hidden'
+        && request.resource.data.status in [resource.data.status, 'closed']
+        && request.resource.data.title is string && request.resource.data.title.size() >= 5 && request.resource.data.title.size() <= 120
+        && request.resource.data.description is string && request.resource.data.description.size() >= 1 && request.resource.data.description.size() <= 500
+        && validTags(request.resource.data.tags)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if verified() && (resource.data.authorId == request.auth.uid || isAdmin());
+    }
+
+    // ---------- function-only collections ----------
+    match /requests/{id} {
+      allow read: if verified() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
+      allow write: if false;
+    }
+    match /connections/{pid} {
+      allow read: if verified() && request.auth.uid in resource.data.members;
+      allow write: if false;
+    }
+    match /karmaEvents/{id} {
+      allow read: if verified() && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    // ---------- chats ----------
+    match /chats/{chatId} {
+      allow read: if verified() && request.auth.uid in resource.data.members;
+      allow update: if isActive() && request.auth.uid in resource.data.members
+        && onlyChanges(['lastMessage','lastMessageAt'])
+        && request.resource.data.lastMessage is string && request.resource.data.lastMessage.size() <= 1000;
+      allow create, delete: if false;
+
+      match /messages/{msgId} {
+        allow read: if verified() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.members;
+        allow create: if isActive() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.members
+          && request.resource.data.keys().hasOnly(['senderId','text','createdAt'])
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.text is string && request.resource.data.text.size() >= 1 && request.resource.data.text.size() <= 1000
+          && request.resource.data.createdAt == request.time;
+        allow update, delete: if false;
+      }
+    }
+
+    // ---------- reports (admin queue) ----------
+    match /reports/{id} {
+      allow read: if isAdmin();
+      allow write: if false;   // created and resolved by functions only
+    }
+
+    // ---------- notifications ----------
+    match /notifications/{id} {
+      allow read: if verified() && resource.data.uid == request.auth.uid;
+      allow update: if verified() && resource.data.uid == request.auth.uid && onlyChanges(['read']) && request.resource.data.read == true;
+      allow create, delete: if false;
+    }
+
+    // ---------- aggregates + config ----------
+    match /tagStats/{tag} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+    match /config/{doc} {
+      allow read: if verified();
+      allow write: if false;   // edit from the Firebase console or scripts/init-config.js
+    }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}

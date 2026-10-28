@@ -1,0 +1,11 @@
+[build]
+  functions = "netlify/functions"
+  publish = "public"
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["firebase-admin"]
+
+# F07: rebuild the Insights aggregates every night at 02:00 UTC
+[functions."aggregate-tags"]
+  schedule = "0 2 * * *"

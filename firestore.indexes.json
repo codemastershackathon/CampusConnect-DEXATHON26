@@ -1,0 +1,17 @@
+{
+  "indexes": [
+    { "collectionGroup": "posts", "queryScope": "COLLECTION", "fields": [ {"fieldPath":"status","order":"ASCENDING"}, {"fieldPath":"createdAt","order":"DESCENDING"} ] },
+    { "collectionGroup": "posts", "queryScope": "COLLECTION", "fields": [ {"fieldPath":"status","order":"ASCENDING"}, {"fieldPath":"type","order":"ASCENDING"}, {"fieldPath":"createdAt","order":"DESCENDING"} ] },
+    { "collectionGroup": "posts", "queryScope": "COLLECTION", "fields": [ {"fieldPath":"status","order":"ASCENDING"}, {"fieldPath":"category","order":"ASCENDING"}, {"fieldPath":"createdAt","order":"DESCENDING"} ] },
+    { "collectionGroup": "posts", "queryScope": "COLLECTION", "fields": [ {"fieldPath":"status","order":"ASCENDING"}, {"fieldPath":"type","order":"ASCENDING"}, {"fieldPath":"category","order":"ASCENDING"}, {"fieldPath":"createdAt","order":"DESCENDING"} ] },
+    { "collectionGroup": "posts", "queryScope": "COLLECTION", "fields": [ {"fieldPath":"tags","arrayConfig":"CONTAINS"}, {"fieldPath":"status","order":"ASCENDING"}, {"fieldPath":"createdAt","order":"DESCENDING"} ] },
+    { "collectionGroup": "posts", "queryScope": "COLLECTION", "fields": [ {"fieldPath":"authorId","order":"ASCENDING"}, {"fieldPath":"createdAt","order":"DESCENDING"} ] },
+    { "collectionGroup": "requests", "queryScope": "COLLECTION", "fields": [ {"fieldPath":"toUid","order":"ASCENDING"}, {"fieldPath":"status","order":"ASCENDING"}, {"fieldPath":"createdAt","order":"DESCENDING"} ] },
+    { "collectionGroup": "requests", "queryScope": "COLLECTION", "fields": [ {"fieldPath":"fromUid","order":"ASCENDING"}, {"fieldPath":"createdAt","order":"DESCENDING"} ] },
+    { "collectionGroup": "chats", "queryScope": "COLLECTION", "fields": [ {"fieldPath":"members","arrayConfig":"CONTAINS"}, {"fieldPath":"lastMessageAt","order":"DESCENDING"} ] },
+    { "collectionGroup": "notifications", "queryScope": "COLLECTION", "fields": [ {"fieldPath":"uid","order":"ASCENDING"}, {"fieldPath":"read","order":"ASCENDING"}, {"fieldPath":"createdAt","order":"DESCENDING"} ] },
+    { "collectionGroup": "notifications", "queryScope": "COLLECTION", "fields": [ {"fieldPath":"uid","order":"ASCENDING"}, {"fieldPath":"createdAt","order":"DESCENDING"} ] },
+    { "collectionGroup": "reports", "queryScope": "COLLECTION", "fields": [ {"fieldPath":"status","order":"ASCENDING"}, {"fieldPath":"createdAt","order":"DESCENDING"} ] }
+  ],
+  "fieldOverrides": []
+}

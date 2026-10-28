@@ -1,0 +1,1 @@
+export { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, query, where, orderBy, limit, getDocs, onSnapshot, serverTimestamp, connectFirestoreEmulator, Timestamp } from '__ORIGIN__/__fake/core.js';

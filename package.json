@@ -1,0 +1,28 @@
+{
+  "name": "campusconnect",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CampusConnect \u2013 peer help board (HTML + Firebase + Netlify Functions)",
+  "scripts": {
+    "configure": "node scripts/configure.js",
+    "init-config": "node scripts/init-config.js",
+    "seed": "node scripts/seed.js",
+    "set-role": "node scripts/set-role.js",
+    "test:functions": "node --test tests/functions.test.js tests/scripts.test.js",
+    "test:rules": "firebase emulators:exec --only firestore \"node --test tests/rules.test.js\"",
+    "emulators": "firebase emulators:start",
+    "deploy:rules": "firebase deploy --only firestore",
+    "test:e2e": "node tests/e2e/server.js 8790 & python3 tests/e2e/e2e.py 8790"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "firebase": "^10.14.1",
+    "firebase-tools": "^13.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
