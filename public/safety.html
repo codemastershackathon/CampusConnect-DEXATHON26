@@ -431,9 +431,26 @@ const pairId = (a, b) => (a < b ? a + '_' + b : b + '_' + a);
 const badgeInfo = (name) => BADGES.find(b => b.name === name) || BADGES[0];
 function nextBadge(karma) { const t = CFG.badgeThresholds; return BADGES.filter(b => b.key && t[b.key] > karma).sort((a, b) => t[a.key] - t[b.key])[0] || null; }
 const friendly = (e) => {
-  const c = e && e.code || '';
-  if (c.includes('permission-denied')) return 'You don’t have permission to do that.';
+  const c = (e && e.code) || '';
+  const M = {
+    'auth/operation-not-allowed': 'This sign-in method is switched off. In the Firebase console go to Authentication → Sign-in method and enable it (Google needs a support email).',
+    'auth/unauthorized-domain': 'This website address is not authorized in Firebase. Add it under Authentication → Settings → Authorized domains (localhost is there by default).',
+    'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'The Firebase API key in this page is wrong. Run npm run configure with your real keys.',
+    'auth/invalid-api-key': 'The Firebase API key in this page is wrong. Run npm run configure with your real keys.',
+    'auth/popup-blocked': 'Your browser blocked the Google window. Allow pop-ups for this site and try again.',
+    'auth/popup-closed-by-user': 'The Google window was closed before sign-in finished. Please try again.',
+    'auth/cancelled-popup-request': 'Another sign-in window was already open. Please try again.',
+    'auth/network-request-failed': 'Network problem. Check your connection and try again.',
+    'auth/web-storage-unsupported': 'Your browser is blocking storage that sign-in needs. Allow cookies/site data for this site.',
+    'auth/account-exists-with-different-credential': 'This email already exists with a different sign-in method. Use the original method.',
+    'auth/internal-error': 'Firebase had an internal problem. Check the browser console and your Firebase config.',
+    'auth/quota-exceeded': 'Email sign-in has reached today’s limit. Please use “Continue with Google”, or try again tomorrow.',
+    'auth/too-many-requests': 'Too many attempts. Please wait a few minutes and try again.'
+  };
+  if (M[c]) return M[c];
+  if (c.includes('permission-denied')) return 'You don’t have permission to do that. If this is your first run, check that the Firestore rules are deployed (npm run deploy:rules) and match your college domain.';
   if (c.includes('unavailable') || c.includes('network')) return 'Network problem. Check your connection and try again.';
+  if (c.startsWith('auth/')) return 'Sign-in failed (' + c + ').';
   return (e && e.message) || 'Something went wrong. Please try again.';
 };
 
@@ -476,7 +493,7 @@ async function loadSession(force) {
   let tok = await user.getIdTokenResult(!!force);
   S.role = tok.claims.role || 'student';
   try { S.profile = await ensureProfile(user); }
-  catch (e) { console.error('profile load failed', e); S.error = 'profile'; return S; }
+  catch (e) { console.error('profile load failed', e); S.error = 'profile'; S.errorCode = e && e.code; return S; }
   if (!force && staffRole(S.profile.role) !== staffRole(S.role)) { tok = await user.getIdTokenResult(true); S.role = tok.claims.role || 'student'; }
   return S;
 }
@@ -584,7 +601,13 @@ function buildShell(s) {
 }
 async function boot(access) {
   const s = await loadSession();
-  if (s.error === 'profile') { document.body.classList.add('ready'); document.body.innerHTML = '<main style="padding:40px;font-family:system-ui"><h1>We couldn’t load your profile</h1><p>Check your connection and refresh. If it keeps happening, contact ' + SUPPORT_EMAIL + '.</p></main>'; return null; }
+  if (s.error === 'profile') {
+    const hint = /permission-denied/.test(s.errorCode || '') ? 'Firestore refused the request. Deploy the rules with <code>npm run deploy:rules</code> and make sure the college domain in <code>firestore.rules</code> matches the account you signed in with (run <code>npm run configure</code>).' : 'Check your connection and the Firebase config, then refresh.';
+    document.body.classList.add('ready');
+    document.body.innerHTML = '<main style="padding:40px;font-family:system-ui;max-width:640px;margin:0 auto"><h1>We couldn’t load your profile</h1><p style="margin:12px 0">' + hint + '</p><p style="color:#666;font-size:13px">Error: ' + esc(s.errorCode || 'unknown') + ' · ' + esc(SUPPORT_EMAIL) + '</p><p style="margin-top:20px"><button id="so-x" style="padding:10px 16px;border-radius:10px;border:1px solid #ccc;background:#fff;cursor:pointer">Sign out and try again</button></p></main>';
+    const x = document.getElementById('so-x'); if (x) x.onclick = doSignOut;
+    return null;
+  }
   const to = decide(access, s);
   if (to) { location.replace(to); return null; }
   buildShell(s); if (s.user && s.profile && access !== 'public') await loadConfig();

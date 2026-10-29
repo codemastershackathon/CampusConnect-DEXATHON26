@@ -66,6 +66,26 @@ npm run seed -- --for you@college.edu              # optional demo data + a read
 npm run seed -- --clean                            # remove all demo data later
 ```
 
+## Staying on the free plan (Firebase Spark, ₹0, no card)
+* Spark can never bill you; at a limit a feature just pauses until the daily reset. Firestore free daily quota: 50,000 reads · 20,000 writes · 20,000 deletes, 1 GiB stored (per Google's published free tier – confirm in the console).
+* **Email-link sign-in is limited to 5 emails/day project-wide on Spark** (25,000/day on Blaze). Use **Google sign-in** as the main route and don't spam "Resend".
+* The board loads 30 posts per fetch (with *Load more*) to protect the read quota. Each page also keeps small listeners (inbox count, notification dot) that only cost reads when something changes.
+* Watch usage in Firebase → Firestore → Usage. If you ever move to Blaze, add a Google Cloud **budget alert** (it warns; it does not stop spending).
+
+## If "Continue with Google" does not work – checklist
+Open the browser console (F12) and read the red error, then match it:
+| Message / symptom | Fix |
+|---|---|
+| "sign-in method is switched off" (`auth/operation-not-allowed`) | Firebase → Authentication → Sign-in method → enable **Google** (it asks for a support email) |
+| "address is not authorized" (`auth/unauthorized-domain`) | Authentication → Settings → **Authorized domains** → add your site (`localhost` is there by default) |
+| Nothing happens / "open the site through a local server" | Don't double-click the HTML files. Run `npx netlify dev` and use http://localhost:8888 |
+| "browser blocked the Google window" | Allow pop-ups for the site |
+| "We couldn't load your profile" + `permission-denied` | Rules not deployed or domain mismatch: `npm run configure` then `npm run deploy:rules` |
+| "Use your college email…" after choosing an account | That Google account's domain isn't in `ALLOWED_EMAIL_DOMAINS` |
+| API key error | Re-run `npm run configure` with the real web config values |
+Testing without a college account: add the test account's domain to `ALLOWED_EMAIL_DOMAINS` (comma-separated, e.g. `college.edu,gmail.com`),
+run `npm run configure`, then `npm run deploy:rules`. Switch back before going live. (The Google "hd" hint is skipped for public domains like gmail.com.)
+
 ## Behaviour that follows your plan
 * Sign-in: Google (with `hd` hint, rejected client-side **and** server-side if not a college address) or email link;
   unverified accounts are held on the verify screen; suspended accounts can only see the suspended screen.
