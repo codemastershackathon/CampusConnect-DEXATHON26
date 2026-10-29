@@ -1,1 +1,0 @@
-export { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, sendEmailVerification, signOut, connectAuthEmulator } from '__ORIGIN__/__fake/core.js';
